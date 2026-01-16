@@ -4,4 +4,4 @@ connection: local
 gather_facts: false
 
 roles:
-  - role: tower_orchestrator
+  - role: tower_orchestator

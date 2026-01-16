@@ -1,41 +1,48 @@
 ---
+# --- AWX/Tower objects ---
+organization_id: 6
+project_id: 3332
 project_branch: "feature/single-template"
 
-ini_files:
-  - "apache.ini"
-  - "iis.ini"
-  - "jbosseap.ini"
-  - "sso.ini"
-  - "tomcat.ini"
-  - "was.ini"
-  - "weblogic.ini"
-
+# --- Credentials (IDs) ---
+# Base credential by region
 region_credentials:
-  emea: 21
-  amer: 102
-  apac: 26
-  dmzi: 24
+  EMEA: 21
+  AMER: 102
+  APAC: 26
+
+# Override credential when product implies a special zone
+zone_credentials:
+  dmz: 24
   lbi: 146
 
-selected_cred_id: "{{ region_credentials[region] }}"
+# --- Instance Groups (by NAME) ---
+region_instance_groups:
+  EMEA: "MiddlewareFR"
+  AMER: "iv2amer"
+  APAC: "iv2apac"
 
-playbook_to_run:
-  - "elastic-iv2-apache.yml"
-  - "elastic-iv2-iis.yml"
-  - "elastic-iv2-jboss.yml"
-  - "elastic-iv2-sso.yml"
-  - "elastic-iv2-tomcat.yml"
-  - "elastic-iv2-was.yml"
-  - "elastic-iv2-weblogic.yml"
-
-launch_limit: "dev:children:emea:children"
-
-sso_template_id: 3333
-organization_id: 6
-scm_credential_id: "Middleware - Bitbucket"
-project_id: 3332
-
-instance_groups_id:
-  EMEA: 1
-  AMER: 6
-  APAC: 7
+# --- Product family -> playbook + inventory ini ---
+# NOTE: ini paths are relative to the project root in SCM.
+product_map:
+  apache:
+    playbook: "elastic-iv2-apache.yml"
+    ini: "inventories/apache.ini"
+  iis:
+    playbook: "elastic-iv2-iis.yml"
+    ini: "inventories/iis.ini"
+  jboss:
+    playbook: "elastic-iv2-jboss.yml"
+    ini: "inventories/jbossap.ini"
+  sso:
+    playbook: "elastic-iv2-sso.yml"
+    ini: "inventories/sso.ini"
+  tomcat:
+    playbook: "elastic-iv2-tomcat.yml"
+    ini: "inventories/tomcat.ini"
+  was:
+    playbook: "elastic-iv2-was.yml"
+    ini: "inventories/was.ini"
+  weblogic:
+    playbook: "elastic-iv2-weblogic.yml"
+    ini: "inventories/weblogic.ini"
