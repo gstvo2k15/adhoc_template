@@ -20,13 +20,13 @@ region_credentials:
 selected_cred_id: "{{ region_credentials[region] }}"
 
 playbook_to_run:
-  - "elastic-iv2-apache.yaml"
-  - "elastic-iv2-iis.yaml"
-  - "elastic-iv2-jboss.yaml"
-  - "elastic-iv2-sso.yaml"
-  - "elastic-iv2-tomcat.yaml"
-  - "elastic-iv2-was.yaml"
-  - "elastic-iv2-weblogic.yaml"
+  - "elastic-iv2-apache.yml"
+  - "elastic-iv2-iis.yml"
+  - "elastic-iv2-jboss.yml"
+  - "elastic-iv2-sso.yml"
+  - "elastic-iv2-tomcat.yml"
+  - "elastic-iv2-was.yml"
+  - "elastic-iv2-weblogic.yml"
 
 launch_limit: "dev:children:emea:children"
 
