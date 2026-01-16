@@ -1,0 +1,31 @@
+---
+- name: "Starting block for sync inventory_sources"
+  block:
+    - name: "Trigger sync for each source"
+      uri:
+        url: "{{ ansible_url }}/inventory_sources/{{ item.json.id }}/update/"
+        method: POST
+        status_code: [202, 200, 201]
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+        body_format: json
+        body: {}
+      loop: "{{ sources.results }}"
+      loop_control:
+        label: "source {{ item.json.id }} ({{ item.json.name }})"
+      register: sync_results
+
+    - name: "Wait for project sync to finish"
+      uri:
+        url: "{{ ansible_url }}/projects/{{ project_id }}/"
+        method: GET
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+      register: proj_status
+      until: (proj_status.json.summary_fields.last_job.status | default('')) == 'successful'
+      retries: 30
+      delay: 10

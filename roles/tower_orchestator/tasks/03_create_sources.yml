@@ -1,0 +1,37 @@
+- name: "Starting block for create sources"
+  block:
+    - name: "Create SCM sources for INI files"
+      uri:
+        url: "{{ ansible_url }}/inventories/{{ inventory_id }}/inventory_sources/"
+        method: POST
+        status_code: [200, 201]
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+        body_format: json
+        body:
+          name: "src_{{ item | basename }}"
+          inventory: "{{ inventoryory_id }}"
+          source: "scm"
+          source_project: "{{ project_id }}"
+          source_path: "{{ item }}"
+          source_branch: "{{ project_branch }}"
+          overwrite: true
+          update_on_project_update: true
+      loop: "{{ ini_files }}"
+      register: sources
+
+    - name: "Show host count (debug)"
+      uri:
+        url: "{{ ansible_url }}/inventories/{{ inventory_id }}/hosts/"
+        method: GET
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+      register: host_list
+
+    - name: "Debug - how many hosts are in the inventory"
+      debug:
+        msg: "Inventory {{ inventory_id }} contains {{ host_list.json.count }} host(s)"

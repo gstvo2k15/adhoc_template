@@ -1,0 +1,30 @@
+- name: "Starting block for create_inventory"
+  block:
+    - name: "Create inventory from INI file in repository"
+      uri:
+        url: "{{ ansible_url }}/inventories/"
+        method: POST
+        status_code: [200, 201]
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+        body_format: json
+        body:
+          name: "Adhoc inventory for Elastic"
+          organization: "{{ organization_id }}"
+      register: inv
+
+    - name: "Set_fact of inventory_id"
+      set_fact:
+        inventory_id: "{{ inv.json.id }}"
+
+    - name: "Check how many hosts are present in the inventory"
+      uri:
+        url: "{{ ansible_url }}/inventories/{{ inventory_id }}/hosts/"
+        method: GET
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+      register: host_check

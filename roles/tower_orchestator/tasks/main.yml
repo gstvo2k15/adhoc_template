@@ -1,0 +1,36 @@
+---
+- name: "Get service token"
+  import_tasks: 01_get_token.yml
+  tags: token
+
+- name: "Create inventory"
+  import_tasks: 02_create_inventory.yml
+  tags: inventory
+
+- name: "Create SCM sources for INI files"
+  import_tasks: 03_create_sources.yml
+  tags: sources
+
+- name: "Sync inventory sources"
+  import_tasks: 04_sync_sources.yml
+  tags: sync
+
+- name: "Create adhoc job template"
+  import_tasks: 05_create_adhoc_template.yml
+  tags: template
+
+- name: "Assign credential to job template"
+  import_tasks: 06_assign_credential.yml
+  tags: credential
+
+- name: "Launch job template"
+  import_tasks: 07_launch_template.yml
+  tags: launch
+
+- name: "Delete Adhoc inventory"
+  import_tasks: 08_delete_inventory.yml
+  tags: delete_inv
+
+- name: "Delete Adhoc template"
+  import_tasks: 09_delete_adhoc_template.yml
+  tags: delete_template

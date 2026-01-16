@@ -1,0 +1,15 @@
+- name: "Starting block for delete adhoc template"
+  block:
+    - name: "Delete the adhoc job template"
+      uri:
+        url: "{{ ansible_url }}/job_templates/{{ adhoc_template_id }}/"
+        method: DELETE
+        status_code: [204, 404]
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+      register: del_template
+      until: del_template.status in [204, 404]
+      retries: 10
+      delay: 5

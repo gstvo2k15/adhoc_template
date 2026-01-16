@@ -1,0 +1,22 @@
+---
+- name: "Starting block for Ansible Token"
+  block:
+    - name: "Create Ansible Token"
+      uri:
+        url: "{{ ansible_url }}/tokens/"
+        validate_certs: false
+        method: POST
+        status_code: [200, 201]
+        headers:
+          Accept: application/json
+        url_username: "{{ api_username }}"
+        url_password: "{{ api_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          description: ""
+      register: token_info
+
+    - name: "Set_fact of svc_token"
+      set_fact:
+        svc_token: "{{ token_info.json.token }}"

@@ -1,0 +1,37 @@
+- name: "Starting block for assign launch template"
+  block:
+    - name: "Launch adhoc template"
+      uri:
+        url: "{{ ansible_url }}/job_templates/{{ adhoc_template_id }}/launch/"
+        method: POST
+        status_code: [200, 201]
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+        body_format: json
+        body:
+          limit: "{{ launch_limit }}"
+          credentials: ["{{ cred_id }}"]
+      register: launch_result
+
+    - name: "Get details of the launched job"
+      uri:
+        url: "{{ ansible_url }}/jobs/{{ launch_result.json.job }}/"
+        method: GET
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+        body_format: json
+      register: job_info
+
+    - name: "Show selected job fields"
+      debug:
+        msg:
+          - "Job ID      : {{ job_info.json.id }}"
+          - "Name        : {{ job_info.json.name }}"
+          - "Status      : {{ job_info.json.status }}"
+          - "Created     : {{ job_info.json.created }}"
+          - "Finished    : {{ job_info.json.finished | default('still running') }}"
+          - "Result      : {{ job_info.json.result | default('N/A') }}"

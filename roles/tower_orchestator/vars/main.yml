@@ -1,0 +1,41 @@
+---
+project_branch: "feature/single-template"
+
+ini_files:
+  - "apache.ini"
+  - "iis.ini"
+  - "jbosseap.ini"
+  - "sso.ini"
+  - "tomcat.ini"
+  - "was.ini"
+  - "weblogic.ini"
+
+region_credentials:
+  emea: 21
+  amer: 102
+  apac: 26
+  dmzi: 24
+  lbi: 146
+
+selected_cred_id: "{{ region_credentials[region] }}"
+
+playbook_to_run:
+  - "elastic-iv2-apache.yaml"
+  - "elastic-iv2-iis.yaml"
+  - "elastic-iv2-jboss.yaml"
+  - "elastic-iv2-sso.yaml"
+  - "elastic-iv2-tomcat.yaml"
+  - "elastic-iv2-was.yaml"
+  - "elastic-iv2-weblogic.yaml"
+
+launch_limit: "dev:children:emea:children"
+
+sso_template_id: 3333
+organization_id: 6
+scm_credential_id: "Middleware - Bitbucket"
+project_id: 3332
+
+instance_groups_id:
+  EMEA: 1
+  AMER: 6
+  APAC: 7
