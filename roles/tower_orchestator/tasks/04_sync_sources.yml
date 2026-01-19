@@ -1,9 +1,9 @@
 ---
-- name: "Starting block for sync inventory_sources"
+- name: Starting block for sync inventory_source
   block:
-    - name: "Trigger sync for each source"
+    - name: Trigger inventory source update
       uri:
-        url: "{{ ansible_url }}/inventory_sources/{{ item.json.id }}/update/"
+        url: "{{ ansible_url }}/inventory_sources/{{ inventory_source_id }}/update/"
         method: POST
         status_code: [202, 200, 201]
         headers:
@@ -12,20 +12,22 @@
         validate_certs: false
         body_format: json
         body: {}
-      loop: "{{ sources.results }}"
-      loop_control:
-        label: "source {{ item.json.id }} ({{ item.json.name }})"
-      register: sync_results
+      register: src_update
 
-    - name: "Wait for project sync to finish"
+    - name: Wait for inventory source sync to finish
       uri:
-        url: "{{ ansible_url }}/projects/{{ project_id }}/"
+        url: "{{ ansible_url }}/inventory_sources/{{ inventory_source_id }}/"
         method: GET
         headers:
           Accept: application/json
           Authorization: "Bearer {{ svc_token }}"
         validate_certs: false
-      register: proj_status
-      until: (proj_status.json.summary_fields.last_job.status | default('')) == 'successful'
-      retries: 30
-      delay: 10
+      register: src_status
+      until: (src_status.json.summary_fields.last_update.status | default('')) in ['successful', 'failed', 'error', 'canceled']
+      retries: 60
+      delay: 5
+
+    - name: Fail if inventory source sync failed
+      fail:
+        msg: "Inventory source sync failed: {{ src_status.json.summary_fields.last_update.status }}"
+      when: (src_status.json.summary_fields.last_update.status | default('')) != 'successful'

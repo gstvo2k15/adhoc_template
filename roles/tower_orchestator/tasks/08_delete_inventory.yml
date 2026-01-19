@@ -1,26 +1,15 @@
-- name: "Starting block for delete all inventory"
-  block:
-    - name: "Delete all inventory sources before removal"
-      uri:
-        url: "{{ ansible_url }}/inventories/{{ inventory_id }}/sources/{{ sources.json.id }}/"
-        method: DELETE
-        status_code: [204, 404]
-        headers:
-          Accept: application/json
-          Authorization: "Bearer {{ svc_token }}"
-        validate_certs: false
-
-    - name: "Delete Ansible inventory"
-      uri:
-        url: "{{ ansible_url }}/inventories/{{ inventory_id }}/"
-        method: DELETE
-        status_code: [204, 200]
-        headers:
-          Accept: application/json
-          Authorization: "Bearer {{ svc_token }}"
-        validate_certs: false
-      register: delete_status
-      until: delete_status.status in [204, 200]
-      retries: 10
-      delay: 15
-      delegate_to: localhost
+---
+- name: Delete adhoc inventory
+  uri:
+    url: "{{ ansible_url }}/inventories/{{ inventory_id }}/"
+    method: DELETE
+    status_code: [204, 200, 404]
+    headers:
+      Accept: application/json
+      Authorization: "Bearer {{ svc_token }}"
+    validate_certs: false
+  register: delete_status
+  until: delete_status.status in [204, 200, 404]
+  retries: 10
+  delay: 5
+  delegate_to: localhost

@@ -1,48 +1,36 @@
 ---
-- name: "Starting block for create adhoc_template"
+- name: Starting block for create adhoc_template
   block:
-    - name: "Build extra_vars dictionary"
+    - name: Build extra_vars dictionary (keep survey keys/values)
       set_fact:
         extra_vars_dict:
           region: "{{ region }}"
+          envs: "{{ envs }}"
           product: "{{ product }}"
           update: "{{ update }}"
           ansible_url: "{{ ansible_url }}"
           capsule_url: "{{ capsule_url }}"
-          organization_id: "{{ organization_id | int }}"
-          envs: "{{ environment }}"
-          data_env: "{{ data_env }}"
-          ets: "{{ is_ETS }}"
-          instance_group: "{{ instance_group }}"
 
-    - name: "Set playbook_path"
+    - name: Create adhoc job template
+      uri:
+        url: "{{ ansible_url }}/job_templates/"
+        method: POST
+        status_code: [200, 201]
+        headers:
+          Accept: application/json
+          Authorization: "Bearer {{ svc_token }}"
+        validate_certs: false
+        body_format: json
+        body:
+          name: "Adhoc-Elastic {{ product }} {{ region_norm }} {{ env_norm }}"
+          job_type: "run"
+          inventory: "{{ inventory_id | int }}"
+          project: "{{ project_id | int }}"
+          playbook: "{{ playbook_path }}"
+          extra_vars: "{{ extra_vars_dict | to_json }}"
+      register: adhoc_template
+
+    - name: Set adhoc_template_id
       set_fact:
-        playbook_path: "{{ playbook_to_run }}"
-
-- name: "Create adhoc job template"
-  uri:
-    url: "{{ ansible_url }}/job_templates/"
-    method: POST
-    status_code: [200, 201]
-    headers:
-      Accept: application/json
-      Authorization: "Bearer {{ svc_token }}"
-    validate_certs: false
-    body_format: json
-    body: >-
-      {{
-        {
-          "name": "Adhoc-Elastic template of {{ product }}-{{ region }}-{{ envs }}",
-          "job_type": "run",
-          "inventory": inventory_id | int,
-          "project": project_id | int,
-          "playbook": playbook_path,
-          "extra_vars": extra_vars_dict | to_json
-        } | to_json
-      }}
-  register: adhoc_template
-
-- name: "Set_fact of adhoc_template_id"
-  set_fact:
-    adhoc_template_id: "{{ adhoc_template.json.id }}"
-  when: adhoc_template is succeeded
+        adhoc_template_id: "{{ adhoc_template.json.id }}"
+      when: adhoc_template is succeeded
