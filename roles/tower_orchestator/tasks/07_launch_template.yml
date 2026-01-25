@@ -11,6 +11,7 @@
     body_format: json
     body:
       limit: "{{ launch_limit }}"
+      verbosity: 3
   register: launch_result
 
 - name: Get details of the launched job
@@ -22,8 +23,11 @@
       Authorization: "Bearer {{ svc_token }}"
     validate_certs: false
   register: job_info
+  until: job_info.json.status in ['successful', 'failed', 'error', 'canceled']
+  retries: 600
+  delay: 15
 
-- name: Show selected job fields
+- name: Print job summary
   debug:
     msg:
       - "Job ID      : {{ job_info.json.id }}"

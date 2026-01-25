@@ -1,7 +1,8 @@
 ---
-- name: "Starting block for Ansible Token"
+- name: Starting block for Ansible Token
   block:
-    - name: "Create Ansible Token"
+
+    - name: Create Ansible Token
       uri:
         url: "{{ ansible_url }}/tokens/"
         validate_certs: false
@@ -17,6 +18,6 @@
           description: ""
       register: token_info
 
-    - name: "Set_fact of svc_token"
+    - name: Set_fact of svc_token
       set_fact:
         svc_token: "{{ token_info.json.token }}"

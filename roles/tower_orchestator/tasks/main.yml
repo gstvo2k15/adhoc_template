@@ -1,10 +1,10 @@
 ---
 - name: Get service token
-  import_tasks: 01_get_token.yml
+  import_tasks: 00_get_token.yml
   tags: token
 
 - name: Derive runtime values from survey
-  import_tasks: 00_derive.yml
+  import_tasks: 01_derive.yml
   tags: derive
 
 - name: Create inventory
@@ -19,17 +19,13 @@
   import_tasks: 04_sync_sources.yml
   tags: sync
 
-- name: Create adhoc job template
+- name: Generate adhoc job template
   import_tasks: 05_create_adhoc_template.yml
   tags: template
 
-- name: Assign credential to job template
-  import_tasks: 06_assign_credential.yml
-  tags: credential
-
-- name: Assign instance group to job template
-  import_tasks: 06b_assign_instance_group.yml
-  tags: instance_group
+- name: Assign credentials to job template
+  import_tasks: 06_assign_credentials.yml
+  tags: credentials
 
 - name: Launch job template
   import_tasks: 07_launch_template.yml

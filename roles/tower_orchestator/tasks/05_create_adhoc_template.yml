@@ -1,6 +1,7 @@
 ---
 - name: Starting block for create adhoc_template
   block:
+
     - name: Build extra_vars dictionary (keep survey keys/values)
       set_fact:
         extra_vars_dict:
@@ -10,8 +11,9 @@
           update: "{{ update }}"
           ansible_url: "{{ ansible_url }}"
           capsule_url: "{{ capsule_url }}"
+          data_env: "{{ data_env }}"
 
-    - name: Create adhoc job template
+    - name: Create adhoc job template for wished product
       uri:
         url: "{{ ansible_url }}/job_templates/"
         method: POST
@@ -22,12 +24,15 @@
         validate_certs: false
         body_format: json
         body:
-          name: "Adhoc-Elastic {{ product }} {{ region_norm }} {{ env_norm }}"
+          name: "Adhoc-Elastic {{ product_family }} {{ region_norm }} {{ env_norm }}"
           job_type: "run"
           inventory: "{{ inventory_id | int }}"
           project: "{{ project_id | int }}"
           playbook: "{{ playbook_path }}"
+          execution_environment_id: "{{ execution_environment_id | int }}"
+          limit: "{{ launch_limit }}"
           extra_vars: "{{ extra_vars_dict | to_json }}"
+          ask_verbosity_on_launch: true
       register: adhoc_template
 
     - name: Set adhoc_template_id

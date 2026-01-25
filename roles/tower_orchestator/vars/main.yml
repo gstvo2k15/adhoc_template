@@ -1,29 +1,28 @@
 ---
-# --- AWX/Tower objects ---
+### Newest vars
 organization_id: 6
 project_id: 3332
 project_branch: "feature/single-template"
 
-# --- Credentials (IDs) ---
-# Base credential by region
 region_credentials:
   EMEA: 21
   AMER: 102
   APAC: 26
 
-# Override credential when product implies a special zone
 zone_credentials:
   dmz: 24
   lbi: 146
 
-# --- Instance Groups (by NAME) ---
 region_instance_groups:
-  EMEA: "MiddlewareFR"
+  EMEA: null
   AMER: "iv2amer"
   APAC: "iv2apac"
 
-# --- Product family -> playbook + inventory ini ---
-# NOTE: ini paths are relative to the project root in SCM.
+instance_group_name_to_id:
+  iv2amer: 6
+  iv2apac: 7
+  MiddlewareFR: null
+
 product_map:
   apache:
     playbook: "elastic-iv2-apache.yml"
@@ -32,11 +31,11 @@ product_map:
     playbook: "elastic-iv2-iis.yml"
     ini: "inventories/iis.ini"
   jboss:
-    playbook: "elastic-iv2-jboss.yml"
-    ini: "inventories/jbossap.ini"
+    playbook: "elastic-iv2-jbosseap.yml"
+    ini: "inventories/jbosseap.ini"
   sso:
     playbook: "elastic-iv2-sso.yml"
-    ini: "inventories/sso.ini"
+    ini: "inventories/apache_sso.ini"
   tomcat:
     playbook: "elastic-iv2-tomcat.yml"
     ini: "inventories/tomcat.ini"
@@ -46,3 +45,5 @@ product_map:
   weblogic:
     playbook: "elastic-iv2-weblogic.yml"
     ini: "inventories/weblogic.ini"
+
+execution_environment_id: 1

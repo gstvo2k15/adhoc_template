@@ -12,7 +12,7 @@
         validate_certs: false
         body_format: json
         body:
-          name: "Adhoc Elastic {{ product }} {{ region_norm }} {{ env_norm }}"
+          name: "Adhoc Elastic {{ product_family }} {{ region_norm }} {{ env_norm }}"
           organization: "{{ organization_id | int }}"
       register: inv
 
