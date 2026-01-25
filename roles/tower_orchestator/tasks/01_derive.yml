@@ -29,7 +29,7 @@
     update: "{{ (update | mandatory | lower | trim) }}"
     instance_group: "{{ (instance_group | mandatory | trim) }}"
     data_env: "{{ (data_env | mandatory | trim) }}"
-    is_ETS: "{{ (update | mandatory | trim) }}"
+    is_ETS: "{{ (is_ETS | mandatory | trim) }}"
 
 - name: Normalize limit parsed via AWX cli
   set_fact:
