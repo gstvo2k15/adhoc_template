@@ -1,0 +1,11 @@
+POST /prod-middleware-products/_delete_by_query
+{
+    "query": {
+        "bool": {
+            "must": [
+                { "term" : { "Product_dpi": "iis_all_windows_version" } },
+                { "term" : { "Zone": "IV2" } }
+            ]
+        }
+    }
+}
