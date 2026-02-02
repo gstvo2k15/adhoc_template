@@ -1,4 +1,3 @@
-```bash
 #!/usr/bin/env bash
 # run_limits.sh
 # Orchestrates executions of awx_prompt.sh:
@@ -8,12 +7,12 @@
 # - For real parallelism you MUST have awx_prompt.sh support --no-monitor
 set -euo pipefail
 
-SCRIPT="./awx_prompt.sh"
+SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/awx_prompt.sh"
 
 usage() {
   cat <<'EOF'
 Usage:
-  run_limits.sh -r <EMEA|APAC|AMER> -e <DEV|STG|PRD[,DEV|STG|PRD...]> \
+  bash run_limits.sh -r <EMEA|APAC|AMER> -e <DEV|STG|PRD[,DEV|STG|PRD...]> \
     [-p <scope>] [-u <update|create|install>] [-d <prod|dev>] [-t <true|false>] \
     [-s <secs>] [-j <max_parallel>] [--no-monitor]
 
@@ -26,6 +25,16 @@ Region -> Instance Group (auto):
   EMEA -> MiddlewareFR
   APAC -> iv2apac
   AMER -> iv2amer
+
+e.g.:
+# tomcat family, two envs, 3 parallel submits, 45s between submits (recommended with --no-monitor)
+./run_limits.sh -r EMEA -e DEV,STG -p tomcat -u update -d prod -t false -j 3 -s 45 --no-monitor
+
+# single real product
+./run_limits.sh -r EMEA -e DEV -p tomcat_ibm -u update -d prod -t false -j 2 -s 60 --no-monitor
+
+# everything, one env
+./run_limits.sh -r APAC -e PRD -u install -d prod -t true -j 2 -s 60 --no-monitor
 
 Notes:
   --no-monitor is passed to awx_prompt.sh. It requires awx_prompt.sh to support it.
@@ -91,21 +100,17 @@ derive_ig_from_region() {
 }
 
 extract_products_from_family_output() {
-  # Parses:
-  # List of all products related to X (total N):
-  #   product1
-  #   product2
   awk '
-    /^List of all products related to / {in=1; next}
-    in && /^[[:space:]]{2}[a-z0-9_]+[[:space:]]*$/ {gsub(/^[ \t]+|[ \t]+$/,""); print}
-    in && /^$/ {exit}
+    /^List of all products related to / {inside=1; next}
+    inside && $1 ~ /^[a-z0-9_]+$/ { print $1 }
+    inside && NF==0 { exit }
   '
 }
 
 extract_limits_from_product_output() {
-  # Parses:
-  #   • limit_name
-  awk '/^  • /{sub(/^  • /,""); print}'
+  awk '
+    { for (i=1; i<=NF; i++) if ($i ~ /^[a-z0-9_]+_[a-z0-9_]+$/) { print $i; break } }
+  '
 }
 
 # Decide which families to traverse based on -p:
@@ -242,17 +247,4 @@ while IFS='|' read -r prod lim env; do
 done < "$tmp"
 
 wait
-```
 
-Examples:
-
-```bash
-# tomcat family, two envs, 3 parallel submits, 45s between submits (recommended with --no-monitor)
-./run_limits.sh -r EMEA -e DEV,STG -p tomcat -u update -d prod -t false -j 3 -s 45 --no-monitor
-
-# single real product
-./run_limits.sh -r EMEA -e DEV -p tomcat_ibm -u update -d prod -t false -j 2 -s 60 --no-monitor
-
-# everything, one env
-./run_limits.sh -r APAC -e PRD -u install -d prod -t true -j 2 -s 60 --no-monitor
-```
