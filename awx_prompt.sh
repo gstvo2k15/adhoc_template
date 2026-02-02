@@ -546,11 +546,11 @@ EOF
 printf -- '\n--- Debug AWX parsed command -------------------------------------------\n'
 printf -- 'awx -k job_templates launch '\''Elastic_inventory_TESTING'\'' \\\n'
 printf -- '  --extra_vars %q \\\n' "$json"
-printf -- '  --verbosity 0 --monitor\n'
+printf -- '  --verbosity 0 \n'
 printf -- '-----------------------------------------------------------------------\n'
 
 printf -- '\n--- Real execution in progress... --------------------------------------\n'
 # Run the command (the %q quoting makes sure the JSON stays a single argument)
 awx -k job_templates launch 'Elastic_inventory_TESTING' \
   --extra_vars "$json" \
-  --verbosity 0 --monitor
+  --verbosity 0
