@@ -47,3 +47,7 @@ product_map:
     ini: "inventories/weblogic.ini"
 
 execution_environment_id: 1
+
+opensearch_url: "https://pamela-mdw.cib.echonet"
+opensearch_index: "prod-middleware-products"
+opensearch_zone: "IV2"
