@@ -8,23 +8,25 @@
         file_type: directory
       register: tomcat_find
 
-    - name: Set_fact of instances_count
+    - name: Set instance_names and instances_count
       set_fact:
         instance_names: "{{ tomcat_find.files | map(attribute='path') | map('basename') | list }}"
-
-    - name: Set_fact of instances_count
-      set_fact:
         instances_count: "{{ tomcat_find.files | length }}"
+        primary_instance: "{{ (tomcat_find.files | length > 0) | ternary((tomcat_find.files[0].path | basename), 'N/A') }}"
 
-    - name: Initialise dictionaries (empty or with placeholder)
+    - name: Initialise dictionaries
       set_fact:
-        cat_home_by_inst: "{{ {} if tomcat_find.files | length > 0 else {'none': 'Not_found'} }}"
-        java_home_by_inst: "{{ {} if tomcat_find.files | length > 0 else {'none': 'Not_found'} }}"
-        cat_real_by_inst: "{{ {} if tomcat_find.files | length > 0 else {'none': 'Not_found'} }}"
-        java_real_by_inst: "{{ {} if tomcat_find.files | length > 0 else {'none': 'Not_found'} }}"
-        tomcat_rpm_by_inst: "{{ {} if tomcat_find.files | length > 0 else {'none': 'Not_found'} }}"
-        java_rpm_by_inst: "{{ {} if tomcat_find.files | length > 0 else {'none': 'Not_found'} }}"
-      ignore_errors: true
+        cat_home_by_inst: {}
+        java_home_by_inst: {}
+        cat_real_by_inst: {}
+        java_real_by_inst: {}
+        tomcat_rpm_by_inst: {}
+        java_rpm_by_inst: {}
+        tomcat_rpmi_by_inst: {}
+        jdk_rpmi_by_inst: {}
+        instances: []
+        elastic_instances: []
+  ignore_errors: true
 
 - name: Read CATALINA_HOME from setenv.sh
   command: >
@@ -38,8 +40,9 @@
 - name: Store CATALINA_HOME in dict
   set_fact:
     cat_home_by_inst: >-
-      {{ cat_home_by_inst | combine({ (item.item.path | basename): item.stdout }) }}
-  loop: "{{ cat_raw.results }}"
+      {{ cat_home_by_inst
+         | combine({ (item.item.path | basename): (item.stdout | default('') | trim) }) }}
+  loop: "{{ cat_raw.results | default([]) }}"
   loop_control:
     label: "{{ item.item.path }}"
   ignore_errors: true
@@ -51,13 +54,15 @@
   loop_control:
     label: "{{ item.path }}"
   register: java_raw
+  changed_when: false
   ignore_errors: true
 
 - name: Store JAVA_HOME in dict
   set_fact:
     java_home_by_inst: >-
-      {{ java_home_by_inst | combine({ (item.item.path | basename): item.stdout }) }}
-  loop: "{{ java_raw.results }}"
+      {{ java_home_by_inst
+         | combine({ (item.item.path | basename): (item.stdout | default('') | trim) }) }}
+  loop: "{{ java_raw.results | default([]) }}"
   loop_control:
     label: "{{ item.item.path }}"
   ignore_errors: true
@@ -67,69 +72,76 @@
   loop: "{{ cat_home_by_inst | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
+  when: cat_home_by_inst[item.key] | default('') | trim != ''
   register: cat_real_raw
+  changed_when: false
   ignore_errors: true
 
 - name: Store resolved CATALINA_HOME path
   set_fact:
     cat_real_by_inst: >-
-      {{ cat_real_by_inst | combine({ item.item.key: item.stdout }) }}
-  loop: "{{ cat_real_raw.results }}"
+      {{ cat_real_by_inst
+         | combine({ (item.item.key): (item.stdout | default('') | trim) }) }}
+  loop: "{{ cat_real_raw.results | default([]) }}"
   loop_control:
     label: "{{ item.item.key }}"
   ignore_errors: true
-
 
 - name: Resolve real path of each JAVA_HOME
   command: readlink -f "{{ java_home_by_inst[item.key] }}"
   loop: "{{ java_home_by_inst | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
+  when: java_home_by_inst[item.key] | default('') | trim != ''
   register: java_real_raw
+  changed_when: false
   ignore_errors: true
 
 - name: Store resolved JAVA_HOME path
   set_fact:
     java_real_by_inst: >-
-      {{ java_real_by_inst | combine({ item.item.key: item.stdout }) }}
-  loop: "{{ java_real_raw.results }}"
+      {{ java_real_by_inst
+         | combine({ (item.item.key): (item.stdout | default('') | trim) }) }}
+  loop: "{{ java_real_raw.results | default([]) }}"
   loop_control:
     label: "{{ item.item.key }}"
   ignore_errors: true
 
-- name: Starting block of SHA1 if required
-  block:
 
-    - name: Detect SHA-1 signature problem with the MDW packages
+- name: SHA1 policy workaround (if needed)
+  block:
+    - name: Detect SHA-1 signature problem (mdw packages)
       command: rpm -qa | grep mdw
       register: _sha1_check
       changed_when: false
-
-    - name: Set flag indicating whether the temporary SHA-1 policy is required
+      failed_when: false
+    - name: Set flag indicating whether SHA-1 policy is required
       set_fact:
-        _sha1_needed: ('Signature not supported' in _sha1_check.stderr)
-
+        _sha1_needed: "{{ ('Signature not supported' in (_sha1_check.stderr | default(''))) | bool }}"
     - name: Enable SHA-1 policy (temporary workaround)
       command: update-crypto-policies --set DEFAULT:SHA1
       become: true
-      when: _sha1_needed
+      when: _sha1_needed | default(false)
       changed_when: false
   ignore_errors: true
+
 
 - name: Rpm that owns each resolved Tomcat directory
   command: rpm -qf "{{ cat_real_by_inst[item.key] }}"
   loop: "{{ cat_real_by_inst | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
+  when: cat_real_by_inst[item.key] | default('') | trim != ''
   register: tomcat_rpm_raw
+  changed_when: false
   ignore_errors: true
 
 - name: Store Tomcat rpm in dict
   set_fact:
     tomcat_rpm_by_inst: >-
       {{ tomcat_rpm_by_inst
-         | combine({ item.item.key: (item.stdout | default('<none>')) }) }}
-  loop: "{{ tomcat_rpm_raw.results }}"
+         | combine({ (item.item.key): (item.stdout | default('Not_found') | trim) }) }}
+  loop: "{{ tomcat_rpm_raw.results | default([]) }}"
   loop_control:
     label: "{{ item.item.key }}"
   ignore_errors: true
@@ -139,13 +151,15 @@
   loop: "{{ java_real_by_inst | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
+  when: java_real_by_inst[item.key] | default('') | trim != ''
   register: java_rpm_raw
+  changed_when: false
   ignore_errors: true
 
 - name: Restore default crypto policy
   command: update-crypto-policies --set DEFAULT
   become: true
-  when: _sha1_needed
+  when: _sha1_needed | default(false)
   changed_when: false
   ignore_errors: true
 
@@ -153,80 +167,95 @@
   set_fact:
     java_rpm_by_inst: >-
       {{ java_rpm_by_inst
-         | combine({ item.item.key: (item.stdout | default('<none>')) }) }}
-  loop: "{{ java_rpm_raw.results }}"
+         | combine({ (item.item.key): (item.stdout | default('Not_found') | trim) }) }}
+  loop: "{{ java_rpm_raw.results | default([]) }}"
   loop_control:
     label: "{{ item.item.key }}"
   ignore_errors: true
 
-- name: Build list of instances with rpm info
+- name: Build instances list with rpm owner info
   set_fact:
     instances: >-
-      {{ instances | default([]) + [ {
-        'name': item.key,
-        'tomcat_rpm': tomcat_rpm_by_inst[item.key],
-        'jdk_rpm': java_rpm_by_inst[item.key]
+      {{ instances + [ {
+        'name': item,
+        'tomcat_rpm': (tomcat_rpm_by_inst[item] | default('Not_found')),
+        'jdk_rpm': (java_rpm_by_inst[item] | default('Not_found'))
       } ] }}
-  loop: "{{ tomcat_rpm_by_inst | dict2items }}"
+  loop: "{{ instance_names | default([]) }}"
   loop_control:
-    label: "{{ item.key }}"
+    label: "{{ item }}"
   ignore_errors: true
 
+- name: rpm -qi for Tomcat package per instance
+  command: rpm -qi "{{ item.tomcat_rpm }}"
+  loop: "{{ instances | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - (item.tomcat_rpm | default('') | trim) not in ['', 'Not_found']
+    - (item.tomcat_rpm | default('') | trim) is not search('is not owned')
+  register: _tomcat_qi
+  changed_when: false
+  ignore_errors: true
 
-- name: Build map tomcat-major -> unique JDK rpms
+- name: Store rpm -qi Tomcat output per instance
   set_fact:
-    tomcat_jdk_map: >-
-      {{ tomcat_jdk_map | default({}) |
-         combine({
-           tomcat_major: (tomcat_jdk_map[tomcat_major] | default([]) + [item.jdk_rpm]) | unique
-         })
-      }}
-  loop: "{{ instances }}"
-  when: item.tomcat_rpm | length > 0 and item.jdk_rpm | length > 0
-  vars:
-    tomcat_major: "{{ (item.tomcat_rpm | regex_search('tomcat([0-9]+)')) }}"
+    tomcat_rpmi_by_inst: >-
+      {{ tomcat_rpmi_by_inst
+         | combine({ (item.item.name): (item.stdout | default('Not_found')) }) }}
+  loop: "{{ _tomcat_qi.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
   ignore_errors: true
 
+- name: rpm -qi for JDK package per instance
+  command: rpm -qi "{{ item.jdk_rpm }}"
+  loop: "{{ instances | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - (item.jdk_rpm | default('') | trim) not in ['', 'Not_found']
+    - (item.jdk_rpm | default('') | trim) is not search('is not owned')
+  register: _jdk_qi
+  changed_when: false
+  failed_when: false
 
-- name: Starting block for final set_facts of multi_instances
-  block:
-    - name: Unique rpm lists
-      set_fact:
-        unique_tomcat_rpms: "{{ instances | map(attribute='tomcat_rpm') | unique | list }}"
-        unique_jdk_rpms: "{{ instances | map(attribute='jdk_rpm') | unique | list }}"
-
-    - name: Final fact - multiple tomcat/jdk versions
-      set_fact:
-        rpminstalled:
-          all_same: false
-          message: >-
-            {% set lines = [] -%}
-            {% for inst in instances -%}
-            {% set jdk_val = (inst.jdk_rpm | default('') ) | trim -%}
-            {% set tomcat_val = (inst.tomcat_rpm | default('') ) | trim -%}
-            {% if jdk_val == '' or jdk_val == '<none>' %}{% set jdk_val = 'Not_found' %}{% endif -%}
-            {% if tomcat_val == '' or tomcat_val == '<none>' %}{% set tomcat_val = 'Not_found' %}{% endif -%}
-            {% set _ = lines.append(
-                  inst.name
-                  ~ jdk_val
-                  ~ tomcat_val
-                ) -%}
-            {% endfor -%}
-            {{ lines | join(';') }}
-          mismatched_instances: []
-      when: (unique_tomcat_rpms | length >= 1 and unique_jdk_rpms | length >= 1)
-
-    - name: Define final set_facts for every instance detected
-      set_fact:
-        instance: "{{ rpminstalled.inst.name }}"
-        jdk_installed: "{{ rpminstalled.inst.jdk_val }}"
-        tomcat_installed: "{{ rpminstalled.inst.tomcat_val }}"
-
-    - name: Debug of multi_instances
-      debug:
-        msg: |
-          "{{ instance }}"
-          "{{ jdk_installed }}"
-          "{{ tomcat_installed }}"
-
+- name: Store rpm -qi JDK output per instance
+  set_fact:
+    jdk_rpmi_by_inst: >-
+      {{ jdk_rpmi_by_inst
+         | combine({ (item.item.name): (item.stdout | default('Not_found')) }) }}
+  loop: "{{ _jdk_qi.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
   ignore_errors: true
+
+- name: Build elastic_instances (one entry per detected instance)
+  set_fact:
+    elastic_instances: >-
+      {{ elastic_instances + [ {
+        'name': item.name,
+        'tomcat_rpm': (item.tomcat_rpm | default('Not_found')),
+        'jdk_rpm': (item.jdk_rpm | default('Not_found')),
+        'tomcat_rpmi': (tomcat_rpmi_by_inst[item.name] | default('Not_found')),
+        'jdk_rpmi': (jdk_rpmi_by_inst[item.name] | default('Not_found'))
+      } ] }}
+  loop: "{{ instances | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  ignore_errors: true
+
+- name: jdk_instances_count (unique JDK packages across instances)
+  set_fact:
+    jdk_instances_count: >-
+      {{ (instances | map(attribute='jdk_rpm') | select('string') | list | unique | length) }}
+  ignore_errors: true
+
+- name: Debug multi-instance final facts (optional)
+  debug:
+    msg:
+      instances_count: "{{ instances_count }}"
+      primary_instance: "{{ primary_instance }}"
+      instance_names: "{{ instance_names }}"
+      elastic_instances: "{{ elastic_instances }}"
+  when: false

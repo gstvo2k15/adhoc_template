@@ -64,6 +64,7 @@
       retries: 3
       delay: 5
       until: result.status in [200, 201]
+
     - name: Debug OpenSearch response (optional)
       debug:
         var: result.json
