@@ -1,0 +1,68 @@
+- name: "Starting block of upload info to Elastic"
+  block:
+    - name: "Create or update host information in OpenSearch"
+      uri:
+        url: "{{ opensearch_host }}/{{ opensearch_index }}/_update/{{ inventory_hostname_short }}?pretty&refresh"
+        validate_certs: false
+        method: POST
+        status_code: [200, 201]
+        url_username: "{{ mdw_elastic_user }}"
+        url_password: "{{ mdw_elastic_password }}"
+        headers:
+          Accept: "application/json"
+        body_format: json
+        body:
+          doc:
+            Hostname: "{{ inventory_hostname_short }}"
+            Instance_name: "{{ primary_instance | default('N/A') }}"
+            Instances: "{{ elastic_instances }}"
+            Instances_count: "{{ instances_count }}"
+            Environment: "{{ env | default('N/A') }}"
+            Application_bamid: "{{ Application_bamid | default('N/A') }}"
+            Application_auid: "{{ Application_auid | default('N/A') }}"
+            Region: "{{ region | default('N/A') }}"
+            Os: "{{ os | default('N/A') }}"
+            Os_version: "{{ os_version | default('N/A') }}"
+            Product: "{{ productname }}"
+            Product_dpi: "{{ product_name | default('N/A') }}"
+            Product_version: "{{ globalversion | default('Not_found') }}"
+            Product_patch_version: "{{ tomcatrpmversion | default('N/A') }}"
+            Java_version: "{{ javaversion | default('N/A') }}"
+            Ecosystem: "{{ ecosystem | default('N/A') }}"
+            Workspace_id: "{{ workspace_ids | default('N/A') }}"
+            Owner: "{{ owner | default('N/A') }}"
+            Perimeter: "{{ perimeter | default('N/A') }}"
+            Cloud_id: "{{ cloud_id | default('N/A') }}"
+            Datacenter: "{{ datacenter | default('N/A') }}"
+            Zone: "IV2"
+            Application_name: "{{ application_name | default('N/A') }}"
+            Location_zone: "{{ location_zone | default('N/A') }}"
+            RPMVersionInstalled: "{{ apachetomcatrpminstalled | default('Not mdw-repo found') }}"
+            Business_line: ""
+            Infrastructure_decision: ""
+            Country: "{{ country | default('N/A') }}"
+            Cloud: "CIB"
+            Patch_id: "N/A"
+            Patch_date: ""
+            Creation_date: "{{ creation_date | default('01/01/1999') }}"
+            Contact: "{{ owner | default('N/A') }}"
+            Last_update: "{{ time }}"
+            Status: "{{ status | default('ACTIVE') }}"
+            Server_status: "{{ status | default('ACTIVE') }}"
+            LabelSN: "{{ inventory_hostname_short }}\\{{ primary_instance | default('N/A') }}"
+            Label: ""
+            Support_group: "BNPP_CIB_GLOBAL_ITO_PROD_INFRA_CAAS_WEB_SDM"
+            MarketplaceInfo: "{{ marketplace_product_name | default('N/A') }}"
+            jdk_instances: "{{ jdk_instances_count | default('N/A') }}"
+        doc_as_upsert: true
+      delegate_to: localhost
+      register: result
+      retries: 3
+      delay: 5
+      until: result.status in [200, 201]
+
+    - name: "Debug OpenSearch response"
+      debug:
+        var: result.json
+      when: result is defined
+      ignore_errors: true
