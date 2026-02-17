@@ -1,8 +1,9 @@
-- name: "Starting block of upload info to Elastic"
+- name: Starting block of upload info to OpenSearch (one doc per instance)
   block:
-    - name: "Create or update host information in OpenSearch"
+    - name: Create or update instance document in OpenSearch
       uri:
-        url: "{{ opensearch_host }}/{{ opensearch_index }}/_update/{{ inventory_hostname_short }}?pretty&refresh"
+        url: >-
+          {{ opensearch_host }}/{{ opensearch_index }}/_update/{{ inventory_hostname_short }}_{{ item.name }}?pretty&refresh
         validate_certs: false
         method: POST
         status_code: [200, 201]
@@ -14,9 +15,11 @@
         body:
           doc:
             Hostname: "{{ inventory_hostname_short }}"
-            Instance_name: "{{ primary_instance | default('N/A') }}"
-            Instances: "{{ elastic_instances }}"
-            Instances_count: "{{ instances_count }}"
+            Instance_name: "{{ item.name }}"
+            Java_version: "{{ item.jdk_rpmi | default('Not_found') }}"
+            RPMVersionInstalled: "{{ item.tomcat_rpmi | default('Not_found') }}"
+            Instances: "{{ elastic_instances | default([]) }}"
+            Instances_count: "{{ instances_count | default(0) }}"
             Environment: "{{ env | default('N/A') }}"
             Application_bamid: "{{ Application_bamid | default('N/A') }}"
             Application_auid: "{{ Application_auid | default('N/A') }}"
@@ -27,7 +30,6 @@
             Product_dpi: "{{ product_name | default('N/A') }}"
             Product_version: "{{ globalversion | default('Not_found') }}"
             Product_patch_version: "{{ tomcatrpmversion | default('N/A') }}"
-            Java_version: "{{ javaversion | default('N/A') }}"
             Ecosystem: "{{ ecosystem | default('N/A') }}"
             Workspace_id: "{{ workspace_ids | default('N/A') }}"
             Owner: "{{ owner | default('N/A') }}"
@@ -37,7 +39,6 @@
             Zone: "IV2"
             Application_name: "{{ application_name | default('N/A') }}"
             Location_zone: "{{ location_zone | default('N/A') }}"
-            RPMVersionInstalled: "{{ apachetomcatrpminstalled | default('Not mdw-repo found') }}"
             Business_line: ""
             Infrastructure_decision: ""
             Country: "{{ country | default('N/A') }}"
@@ -49,20 +50,22 @@
             Last_update: "{{ time }}"
             Status: "{{ status | default('ACTIVE') }}"
             Server_status: "{{ status | default('ACTIVE') }}"
-            LabelSN: "{{ inventory_hostname_short }}\\{{ primary_instance | default('N/A') }}"
+            LabelSN: "{{ inventory_hostname_short }}\\{{ item.name }}"
             Label: ""
             Support_group: "BNPP_CIB_GLOBAL_ITO_PROD_INFRA_CAAS_WEB_SDM"
             MarketplaceInfo: "{{ marketplace_product_name | default('N/A') }}"
             jdk_instances: "{{ jdk_instances_count | default('N/A') }}"
-        doc_as_upsert: true
+          doc_as_upsert: true
+      loop: "{{ elastic_instances | default([]) }}"
+      loop_control:
+        label: "{{ inventory_hostname_short }}_{{ item.name }}"
       delegate_to: localhost
       register: result
       retries: 3
       delay: 5
       until: result.status in [200, 201]
-
-    - name: "Debug OpenSearch response"
+    - name: Debug OpenSearch response (optional)
       debug:
         var: result.json
       when: result is defined
-      ignore_errors: true
+  ignore_errors: true
