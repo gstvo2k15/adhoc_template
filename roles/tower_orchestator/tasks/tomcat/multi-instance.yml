@@ -179,7 +179,6 @@
 
 - name: SHA1 policy workaround (if needed)
   block:
-
     - name: Detect SHA-1 signature problem (mdw packages)
       shell: rpm -qa | grep mdw
       register: _sha1_check
@@ -196,30 +195,28 @@
       changed_when: false
   ignore_errors: true
 
-- name: Rpm that owns each resolved Tomcat directory
+- name: Rpm that owns each resolved Tomcat directory (ASF)
   command: "rpm -qf mdw-asf-tomcat{{ cat_real_by_inst[item.key] }}"
   loop: "{{ cat_real_by_inst | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
-  when: cat_real_by_inst[item.key] | default('') | trim != ''
+  when:
+    - cat_real_by_inst[item.key] | default('') | trim != ''
+    - productname == "Apache Tomcat"
   register: tomcat_rpm_raw
   changed_when: false
-  when:
-    - productname == "Apache Tomcat"
   ignore_errors: true
 
-
-
-- name: Rpm that owns each resolved Tomcat directory
+- name: Rpm that owns each resolved Tomcat directory (JWS)
   command: "rpm -qf mdw-jws-tomcat{{ cat_real_by_inst[item.key] }}"
   loop: "{{ cat_real_by_inst | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
-  when: cat_real_by_inst[item.key] | default('') | trim != ''
+  when:
+    - cat_real_by_inst[item.key] | default('') | trim != ''
+    - productname == "JBoss Enterprise Web Server"
   register: tomcat_rpm_raw
   changed_when: false
-  when:
-    - productname == "JBoss Enterprise Web Server"
   ignore_errors: true
 
 - name: Store Tomcat rpm in dict
