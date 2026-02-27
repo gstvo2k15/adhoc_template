@@ -1,0 +1,55 @@
+---
+- name: Build a temporary list with keyed instance entries
+  set_fact:
+    _indexed_instances: >-
+      {{ _indexed_instances | default([]) +
+         [ {'key': 'instance_' + (idx + 1) | string, 'value': item} ] }}
+  loop: "{{ tomcat_common.instances }}"
+  loop_control:
+    index_var: idx
+  ignore_errors: true
+
+- name: Final block to match with existing Instance_name
+  block:
+
+    - name: Convert the list of key/value pairs into the final dict
+      set_fact:
+        tomcat_instances: "{{ _indexed_instances | items2dict }}"
+
+    - name: Expose each indexed instance as an individual fact
+      set_fact:
+        "{{ item.key }}": "{{ item.value }}"
+      loop: "{{ tomcat_instances | dict2items }}"
+
+    - name: Show the dictionary that contains all indexed instances
+      debug:
+        var: tomcat_instances
+
+    - name: Build a list with every project_name that the API returned
+      set_fact:
+        tomcat_project_names: >-
+          {{
+            tomcat_instances
+            | dict2items
+            | map(attribute='value.project_name')
+            | list
+          }}
+  ignore_errors: true
+
+
+- name: Build DPI map keyed by Instance_name (tomcat_<project_name>)
+  set_fact:
+    tomcat_dpi_map: >-
+      {{
+        tomcat_dpi_map | default({}) |
+        combine({
+          ('tomcat_' ~ (item.value.project_name | default(''))): {
+            'project_name': (item.value.project_name | default('')),
+            'tomcat_release': (item.value.tomcat_release | default('')),
+            'tomcat_java_release': (item.value.tomcat_java_release | default(''))
+          }
+        })
+      }}
+  loop: "{{ tomcat_instances | default({}) | dict2items }}"
+  when: (item.value.project_name | default('')) | length > 0
+  ignore_errors: true

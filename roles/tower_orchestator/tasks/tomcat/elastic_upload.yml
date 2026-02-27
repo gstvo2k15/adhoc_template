@@ -15,10 +15,19 @@
         body:
           doc:
             Hostname: "{{ inventory_hostname_short }}"
-            Instance_name: "{{ item.name }}"
-            Java_version: "{{ item.jdk_rpmi | default('Not_found') }}"
-            RPMVersionInstalled: "{{ item.tomcat_rpmi | default('Not_found') }}"
-            Instances: "{{ elastic_instances | default([]) }}"
+            Instance_name: "{{ item.name | default('Not_found') }}"
+            Instance_DPI: >-
+              {{
+                (tomcat_dpi_map is defined and (item.name | default('')) in tomcat_dpi_map)
+                | ternary(
+                    'project_name: ' ~ tomcat_dpi_map[item.name].project_name ~
+                    ', tomcat_release: ' ~ tomcat_dpi_map[item.name].tomcat_release ~
+                    ', tomcat_java_release: ' ~ tomcat_dpi_map[item.name].tomcat_java_release,
+                    'No_DPI_coincidence'
+                  )
+              }}
+            Java_version: "{{ java_version_by_inst[item.name] | default('Not_found') }}"
+            RPMVersionInstalled: "{{ item.tomcat_rpm | default('Not_found') }}"
             Instances_count: "{{ instances_count | default(0) }}"
             Environment: "{{ env | default('N/A') }}"
             Application_bamid: "{{ Application_bamid | default('N/A') }}"
