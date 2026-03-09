@@ -1,0 +1,147 @@
+---
+- name: Show installed Tomcat packages
+  shell: "rpm -qa | grep -i '{{ tomcat_package_pattern }}' || true"
+  register: tomcat_rpm_query
+  changed_when: false
+
+- name: Print installed Tomcat packages
+  debug:
+    msg: "{{ tomcat_rpm_query.stdout_lines | default([]) }}"
+
+- name: Build RHEL7 Tomcat package list
+  set_fact:
+    tomcat_rhel7_packages: "{{ tomcat_rpm_query.stdout_lines | default([]) | select('search', '\\.el7\\.') | list }}"
+
+- name: Print RHEL7 Tomcat packages
+  debug:
+    var: tomcat_rhel7_packages
+
+- name: Find setenv.sh files under /data
+  find:
+    paths: "{{ tomcat_search_root }}"
+    patterns: "{{ tomcat_setenv_filename }}"
+    file_type: file
+    recurse: true
+  register: tomcat_setenv_files
+
+- name: Print discovered setenv.sh files
+  debug:
+    msg: "{{ tomcat_setenv_files.files | map(attribute='path') | list }}"
+
+- name: Initialize RHEL7 Tomcat package metadata
+  set_fact:
+    tomcat_rhel7_package_data: []
+
+- name: Build RHEL7 Tomcat package metadata
+  set_fact:
+    tomcat_rhel7_package_data: "{{ tomcat_rhel7_package_data + [package_data] }}"
+  vars:
+    package_major: "{{ item | regex_search('tomcat[0-9]+') }}"
+    package_data:
+      package: "{{ item }}"
+      search_pattern: "jws-{{ package_major }}"
+  loop: "{{ tomcat_rhel7_packages }}"
+  when: item | regex_search('tomcat[0-9]+')
+
+- name: Print RHEL7 Tomcat package metadata
+  debug:
+    var: tomcat_rhel7_package_data
+
+- name: Initialize raw usage results
+  set_fact:
+    tomcat_usage_raw:
+      results: []
+
+- name: Check references package by package and file by file
+  command:
+    argv:
+      - grep
+      - -Hn
+      - "{{ item[0].search_pattern }}"
+      - "{{ item[1].path }}"
+  register: tomcat_usage_raw
+  changed_when: false
+  failed_when: false
+  loop: "{{ tomcat_rhel7_package_data | product(tomcat_setenv_files.files) | list }}"
+  loop_control:
+    label: "{{ item[0].package }} -> {{ item[1].path }}"
+  when:
+    - tomcat_rhel7_package_data is defined
+    - tomcat_rhel7_package_data | length > 0
+    - tomcat_setenv_files.matched | int > 0
+
+- name: Initialize usage results
+  set_fact:
+    tomcat_usage_results: []
+
+- name: Build usage results per package
+  set_fact:
+    tomcat_usage_results: "{{ tomcat_usage_results + [usage_item] }}"
+  vars:
+    package_name: "{{ item.package }}"
+    search_pattern: "{{ item.search_pattern }}"
+    package_matches: >-
+      {{
+        tomcat_usage_raw.results
+        | default([])
+        | selectattr('item.0.package', 'equalto', package_name)
+        | selectattr('rc', 'equalto', 0)
+        | map(attribute='stdout_lines')
+        | list
+        | flatten
+      }}
+    usage_item:
+      package: "{{ package_name }}"
+      search_pattern: "{{ search_pattern }}"
+      in_use: "{{ package_matches | length > 0 }}"
+      matches: "{{ package_matches }}"
+  loop: "{{ tomcat_rhel7_package_data | default([]) }}"
+
+- name: Ensure usage results exist when no setenv.sh files were found
+  set_fact:
+    tomcat_usage_results: "{{ tomcat_rhel7_package_data | map('combine', {'in_use': false, 'matches': []}) | list }}"
+  when:
+    - tomcat_rhel7_package_data is defined
+    - tomcat_rhel7_package_data | length > 0
+    - tomcat_setenv_files.matched | int == 0
+
+- name: Print usage results
+  debug:
+    var: tomcat_usage_results
+
+- name: Fail if any RHEL7 Tomcat package is still in use
+  fail:
+    msg: >-
+      Removal aborted. These RHEL7 Tomcat packages are still referenced in
+      {{ tomcat_search_root }}: {{
+        tomcat_usage_results
+        | selectattr('in_use', 'equalto', true)
+        | list
+      }}
+  when:
+    - tomcat_fail_if_in_use | bool
+    - tomcat_usage_results | selectattr('in_use', 'equalto', true) | list | length > 0
+
+- name: Build removable RHEL7 Tomcat package list
+  set_fact:
+    tomcat_packages_to_remove: >-
+      {{
+        tomcat_usage_results
+        | rejectattr('in_use', 'equalto', true)
+        | map(attribute='package')
+        | list
+      }}
+
+- name: Print removable RHEL7 Tomcat packages
+  debug:
+    var: tomcat_packages_to_remove
+
+- name: Trigger removal handler
+  command: /bin/true
+  changed_when: tomcat_packages_to_remove | length > 0
+  notify: Remove RHEL7 Tomcat packages
+  when: tomcat_packages_to_remove | length > 0
+
+- name: Flush handlers
+  meta: flush_handlers
+  when: tomcat_packages_to_remove | length > 0
